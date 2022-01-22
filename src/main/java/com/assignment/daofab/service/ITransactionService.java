@@ -1,9 +1,10 @@
 package com.assignment.daofab.service;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 
-import com.assignment.daofab.model.ParentTransaction;
+import com.assignment.daofab.exception.ChildTransactionFetchingException;
+import com.assignment.daofab.exception.InvalidParentIdException;
+import com.assignment.daofab.exception.ParentTransactionFetchingException;
 import com.assignment.daofab.response.ChildTransactionsResponse;
 import com.assignment.daofab.response.ParentTransactionsResponse;
 
@@ -14,10 +15,8 @@ import com.assignment.daofab.response.ParentTransactionsResponse;
  */
 public interface ITransactionService {
 
-	List<ParentTransactionsResponse> getParentTransactions(int page, int size);
+	Set<ParentTransactionsResponse> getParentTransactions(int page, int size) throws ParentTransactionFetchingException;
 
-	List<ChildTransactionsResponse> getChildTransactions(ParentTransaction parentTransaction);
-
-	Optional<ParentTransaction> getParentTransaction(long parentId);
+	Set<ChildTransactionsResponse> getChildTransactions(long parentId) throws InvalidParentIdException, ChildTransactionFetchingException;
 
 }

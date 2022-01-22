@@ -10,7 +10,7 @@ public class InvalidParentIdException extends Exception {
 	private static final long serialVersionUID = 1L;
 
 	public InvalidParentIdException() {
-        super();
+        super("Invalid parent id.");
     }
 
     public InvalidParentIdException(String message) {

@@ -1,15 +1,18 @@
 package com.assignment.daofab.service.impl;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.TreeSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.assignment.daofab.dao.ITransactionDao;
+import com.assignment.daofab.exception.ChildTransactionFetchingException;
+import com.assignment.daofab.exception.InvalidParentIdException;
+import com.assignment.daofab.exception.ParentTransactionFetchingException;
 import com.assignment.daofab.model.ChildTransaction;
 import com.assignment.daofab.model.ParentTransaction;
 import com.assignment.daofab.response.ChildTransactionsResponse;
@@ -27,48 +30,66 @@ public class TransactionService implements ITransactionService {
 	@Autowired
 	private ITransactionDao transactionDao;
 
-	@Override
-	public List<ParentTransactionsResponse> getParentTransactions(int page, int size) {
-		List<ParentTransactionsResponse> parentTransactionList = new ArrayList<>();
+	private Logger logger = LoggerFactory.getLogger(TransactionService.class);
 
-		for(ParentTransaction parentTransaction : transactionDao.getParentTransactions(page, size)) {
-			parentTransactionList.add(
-					//Builder Design Pattern
-					new ParentTransactionsResponse()
-					.setParentId(parentTransaction.getId())
-					.setSender(parentTransaction.getSender())
-					.setReceiver(parentTransaction.getReceiver())
-					.setTotalAmount(parentTransaction.getTotalAmount())
-					.setTotalPaidAmount(transactionDao.getTotalPaidAmountForParentTransaction(parentTransaction.getId()))
-					);
+	@Override
+	public Set<ParentTransactionsResponse> getParentTransactions(int page, int size) throws ParentTransactionFetchingException {
+		Set<ParentTransactionsResponse> parentTransactionList = new TreeSet<>();
+
+		try {
+			for(ParentTransaction parentTransaction : transactionDao.getParentTransactions(page, size)) {
+				parentTransactionList.add(
+						//Builder Design Pattern
+						new ParentTransactionsResponse()
+						.setParentId(parentTransaction.getId())
+						.setSender(parentTransaction.getSender())
+						.setReceiver(parentTransaction.getReceiver())
+						.setTotalAmount(parentTransaction.getTotalAmount())
+						.setTotalPaidAmount(transactionDao.getTotalPaidAmountForParentTransaction(parentTransaction.getId()))
+						);
+			}
+		} catch (Exception e) {
+			logger.error("Exception fetching parent transactions.", e);
+			throw new ParentTransactionFetchingException();
 		}
 
 		return parentTransactionList;
 	}
 
 	@Override
-	public List<ChildTransactionsResponse> getChildTransactions(ParentTransaction parentTransaction) {
-		List<ChildTransactionsResponse> childTransactionList = new ArrayList<>();
+	public Set<ChildTransactionsResponse> getChildTransactions(long parentId) throws InvalidParentIdException, ChildTransactionFetchingException {
+		try {
+			Optional<ParentTransaction> parent = transactionDao.getParentTransaction(parentId);
 
-		for(ChildTransaction childTransaction : transactionDao.getChildTransactions(parentTransaction.getId())) {
-			childTransactionList.add(
-					//Builder Design Pattern
-					new ChildTransactionsResponse()
-					.setChildId(childTransaction.getId())
-					.setSender(parentTransaction.getSender())
-					.setReceiver(parentTransaction.getReceiver())
-					.setTotalAmount(parentTransaction.getTotalAmount())
-					.setPaidAmount(childTransaction.getPaidAmount())
-					);
+			if(!parent.isPresent()) {
+				throw new InvalidParentIdException();
+			}
 
+			ParentTransaction parentTransaction = parent.get();
+
+			Set<ChildTransactionsResponse> childTransactionList = new TreeSet<>();
+
+
+			for(ChildTransaction childTransaction : transactionDao.getChildTransactions(parentTransaction.getId())) {
+				childTransactionList.add(
+						//Builder Design Pattern
+						new ChildTransactionsResponse()
+						.setChildId(childTransaction.getId())
+						.setSender(parentTransaction.getSender())
+						.setReceiver(parentTransaction.getReceiver())
+						.setTotalAmount(parentTransaction.getTotalAmount())
+						.setPaidAmount(childTransaction.getPaidAmount())
+						);
+
+			}
+			return childTransactionList;
+		}catch (InvalidParentIdException e) {
+			logger.error("Invalid parent Id.", e);
+			throw new InvalidParentIdException();
+		}catch (Exception e) {
+			logger.error("Exception fetching child transactions.", e);
+			throw new ChildTransactionFetchingException();
 		}
-
-		return childTransactionList.stream().sorted(Comparator.comparing(ChildTransactionsResponse::getChildId)).collect(Collectors.toList());
-	}
-
-	@Override
-	public Optional<ParentTransaction> getParentTransaction(long parentId) {
-		return transactionDao.getParentTransaction(parentId);
 	}
 
 }
